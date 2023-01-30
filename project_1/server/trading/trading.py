@@ -39,7 +39,7 @@ class Trading:
         data.set_interval(self.sampling)
 
         while True:
-            sleep(self.sampling * 1)
+            sleep(self.sampling * 60)
             with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
                 latest_data = executor.map(self.collector.realtime, self.tickers)
             data.update(list(latest_data))
