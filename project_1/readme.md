@@ -1,2 +1,6 @@
-run `python server` to start server
-run `python client` to start client
+to start server:  
+`cd server`  
+`python server` 
+
+to start client:  
+run `python client`

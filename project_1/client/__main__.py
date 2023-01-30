@@ -1,9 +1,14 @@
+import sys
 from cmd import Cmd
 import signal
 import argparse
 from typing import Union, Iterable
+import pandas as pd
 
 from client import Client
+
+
+debug_mode = True
 
 
 class MyCmd(Cmd):
@@ -22,8 +27,12 @@ class MyCmd(Cmd):
     def do_data(self, args):
         try:
             as_of_datetime = self.parse(args, (0, 1))
-            print(self.client.data(as_of_datetime))
+            result = self.client.data(as_of_datetime)
+            print(self.format_data_result(result))
         except Exception as e:
+            if debug_mode:
+                traceback = sys.exc_info()[2]
+                raise e.with_traceback(traceback)
             print(f'Error: {e}')
             return
 
@@ -32,30 +41,46 @@ class MyCmd(Cmd):
             ticker = self.parse(args, 1)
             print(self.client.delete(ticker))
         except Exception as e:
+            if debug_mode:
+                traceback = sys.exc_info()[2]
+                raise e.with_traceback(traceback)
             print(f'Error: {e}')
             return
 
-        print('Deleted {}'.format(ticker))
+        # print('Deleted {}'.format(ticker))
 
     def do_add(self, args):
         try:
             ticker = self.parse(args, 1)
             print(self.client.add(ticker))
         except Exception as e:
+            if debug_mode:
+                traceback = sys.exc_info()[2]
+                raise e.with_traceback(traceback)
             print(f'Error: {e}')
             return
 
-        print('Added {}'.format(ticker))
+        # print('Added {}'.format(ticker))
 
     def do_report(self, args):
         try:
             self.parse(args, 0)
-            self.client.report()
+            print(self.client.report())
         except Exception as e:
+            if debug_mode:
+                traceback = sys.exc_info()[2]
+                raise e.with_traceback(traceback)
             print(f'Error: {e}')
             return
 
-        print('Report')
+    @staticmethod
+    def format_data_result(s):
+        try:
+            f = pd.read_json(s, orient='split').to_string(index=False, header=False)
+            return f
+        except Exception as e:
+            print(f's: {s}')
+
 
     @staticmethod
     def parse(args, expected_args: Union[int, Iterable]):
@@ -64,7 +89,7 @@ class MyCmd(Cmd):
         else:
             args_list = list()
         if not hasattr(expected_args, '__contains__'):
-            expected_args = tuple(expected_args)
+            expected_args = tuple([expected_args])
         if len(args_list) in expected_args:
             if len(args_list) > 1:
                 return args_list
@@ -82,4 +107,4 @@ if __name__ == "__main__":
 
     client = Client(args.server_address)
     app = MyCmd(client)
-    app.cmdloop('Enter a command to do something. eg `create name price`.')
+    app.cmdloop('Enter a command to do something: data, add, delete, report')

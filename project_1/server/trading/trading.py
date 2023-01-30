@@ -5,51 +5,61 @@ from multiprocessing.connection import Connection
 from time import sleep
 import pytz
 
-from server.trading.collector import Collector
-from server.trading.out import Out
-from server.trading.series import PriceSeries
+from .collector import Collector
+from .out import Out
+from .series import PriceSeries, create_PriceSeriesManager
 
 
 class Trading:
-    def __int__(self, conn: Connection, data, tickers, sampling):
+    def __init__(self, conn, tickers, sampling):
         self.initial_raw_ticker_list = tickers
         self.tickers = self._create_proxy_list([])
         self.sampling = sampling
         self.collector = self._create_collector()
-        self.data: PriceSeries = data
+        self.data: PriceSeries = None
         self.conn: Connection = conn
 
     def run(self):
+        price_series_manager = create_PriceSeriesManager()
+        price_series_manager.start()
+        self.data = price_series_manager.PriceSeries()
+
         self.initialize_data()
         self.update_report()
 
-        p_poll = Process(target=self.run_poller, args=(data, self.tickers))
-        p_listener = Process(target=self.run_listener, args=(data, self.tickers))
+        p_poll = Process(target=self.run_poller, args=(self.data, self.tickers))
+        p_listener = Process(target=self.run_listener, args=(self.data, self.tickers))
 
         p_poll.start()
         p_listener.start()
+        print('Ready to accept requests')
         p_poll.join()
         p_listener.join()
 
-    def run_poller(self):
+    def run_poller(self, data, tickers):
+        data.set_interval(self.sampling)
+
         while True:
-            sleep(self.sampling)
+            sleep(self.sampling * 1)
             with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
                 latest_data = executor.map(self.collector.realtime, self.tickers)
-            self.data.update(latest_data)
+            data.update(list(latest_data))
 
-    def run_listener(self):
+    def run_listener(self, data, tickers):
         while True:
             method_name, *args = self.conn.recv()
 
             try:
-                method = getattr(Trading, method_name)
+                method = getattr(self, method_name)
             except AttributeError:
                 raise NotImplementedError(
                     "Class `{}` does not implement `{}`".format(Trading.__class__.__name__, method_name))
 
-            response = method(*args)
-            self.conn.send(response)
+            try:
+                response = method(*args)
+                self.conn.send(response)
+            except Exception as e:
+                self.conn.send(e)
 
     @staticmethod
     def _create_collector():
@@ -72,7 +82,7 @@ class Trading:
         dt = dt.replace(tzinfo=None)
         return dt
 
-    def latest_as_of(self, as_of_text):
+    def latest_as_of(self, as_of_text=None):
         if as_of_text is None:
             as_of_datetime = datetime.now()
         else:
@@ -83,6 +93,7 @@ class Trading:
     def update_report(self):
         report = self.data.report()
         Out.write(report)
+        return 'Report generated'
 
     def add_ticker(self, ticker):
         if not ticker:
@@ -91,8 +102,9 @@ class Trading:
             return
         if self._valid_ticker(ticker):
             self.tickers.append(ticker)
-            data = self.collector.historical(ticker)
+            data = self.collector.historical(ticker, self.sampling)
             self.data.add(ticker, data)
+            self.data.build_single_symbol(ticker)
             return
         raise ValueError(f'invalid ticker: {ticker}')
 

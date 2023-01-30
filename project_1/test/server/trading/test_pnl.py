@@ -1,5 +1,5 @@
 from unittest import TestCase
-from server.trading import pnl
+from server.trading import calc
 
 
 class Test(TestCase):

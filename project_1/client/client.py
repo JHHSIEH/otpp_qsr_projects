@@ -7,15 +7,22 @@ class Client:
 
     def data(self, param):
         response = requests.get(f'{self.server_address}/data', params={'as_of_datetime': param})
-        return response.text
+        return self._response_process(response)
 
     def delete(self, param):
         response = requests.delete(f'{self.server_address}/tickers/{param}')
-        return response.text
+        return self._response_process(response)
 
     def add(self, param):
         response = requests.post(f'{self.server_address}/tickers', data={'ticker': param})
-        return response.text
+        return self._response_process(response)
 
     def report(self):
         response = requests.put(f'{self.server_address}/report')
+        return self._response_process(response)
+
+    @staticmethod
+    def _response_process(response):
+        if not response.ok:
+            response.raise_for_status()
+        return response.text
