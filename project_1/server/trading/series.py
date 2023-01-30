@@ -5,7 +5,7 @@ import pandas as pd
 
 from .calc import signal, pnl
 
-debug_mode = True
+debug_mode = False
 
 
 class PriceSeries:
@@ -64,16 +64,19 @@ class PriceSeries:
     def _average_series(self, df: pd.Series):
         return df.rolling(window=self._window_str, min_periods=1).mean().rename('avg')
 
-
     def _std_series(self, df: pd.Series):
         return df.rolling(window=self._window_str, min_periods=1).std().rename('std')
 
     def report(self):
-        data = pd.concat(list(self._data.values()))
-        data = data.sort_values(by=['datetime', 'ticker'])
-        if not debug_mode:
-            data = data.loc[:, ['datetime', 'ticker', 'price', 'signal', 'pnl']]
-        return data
+        try:
+            data = pd.concat(list(self._data.values()))
+            data = data.sort_values(by=['datetime', 'ticker'])
+            if not debug_mode:
+                data = data.loc[:, ['ticker', 'price', 'signal', 'pnl']]
+            return data
+        except KeyError as e:
+            traceback = sys.exc_info()[2]
+            raise e.with_traceback(traceback)
 
     def _lastest_record_as_of(self, df, as_of):
         data = df.loc[df.index < as_of, ['ticker', 'price', 'signal']]

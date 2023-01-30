@@ -3,10 +3,9 @@ from datetime import datetime
 from multiprocessing import Process, Manager
 from multiprocessing.connection import Connection
 from time import sleep
-import pytz
 
 from .collector import Collector
-from .out import Out
+from .util import _convert_datetime_timezone, write
 from .series import PriceSeries, create_PriceSeriesManager
 
 
@@ -70,29 +69,17 @@ class Trading:
         manager = Manager()
         return manager.list(items)
 
-    @staticmethod
-    def _convert_datetime_timezone(txt, tz1, tz2):
-        format = '%Y-%m-%d-%H:%M'
-        tz1 = pytz.timezone(tz1)
-        tz2 = pytz.timezone(tz2)
-
-        dt = datetime.strptime(txt, format)
-        dt = tz1.localize(dt)
-        dt = dt.astimezone(tz2)
-        dt = dt.replace(tzinfo=None)
-        return dt
-
     def latest_as_of(self, as_of_text=None):
         if as_of_text is None:
             as_of_datetime = datetime.now()
         else:
-            as_of_datetime = self._convert_datetime_timezone(as_of_text, 'UTC', 'Canada/Eastern')
+            as_of_datetime = _convert_datetime_timezone(as_of_text, 'UTC', 'Canada/Eastern')
 
         return self.data.snapshot(as_of_datetime)
 
     def update_report(self):
         report = self.data.report()
-        Out.write(report)
+        write(report)
         return 'Report generated'
 
     def add_ticker(self, ticker):
@@ -114,6 +101,7 @@ class Trading:
         if ticker in self.tickers:
             self.tickers.remove(ticker)
             self.data.delete(ticker)
+            return
         raise ValueError('please provide a valid ticker')
 
     def _valid_ticker(self, ticker):

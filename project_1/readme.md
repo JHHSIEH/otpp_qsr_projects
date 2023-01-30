@@ -1,6 +1,6 @@
 to start server:  
 `cd server`  
-`python server` 
+`python run.py` 
 
 to start client:  
 run `python client`

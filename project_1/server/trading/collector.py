@@ -53,7 +53,6 @@ class Collector:
         except FinnhubAPIException:
             raise Exception('temporarily rate limited')
 
-
     def lookup_symbol(self, symbol):
         finnhub_client = finnhub.Client(api_key=realtime_api_key)
         response = finnhub_client.symbol_lookup(symbol)
